@@ -8,4 +8,5 @@
 {"key":"compact_tier2_dep_levels","value":"5"}
 {"key":"compaction_enabled","value":"false"}
 {"key":"issue_prefix","value":"Platformer"}
+{"key":"kv.memory.cinemachine-3-1-3-has-a-known-bug","value":"Cinemachine 3.1.3 has a known bug: swapping CinemachineConfiner2D.BoundingShape2D at runtime doesn't move the camera. Workaround: use multiple CinemachineCameras (one per zone) with priority swapping instead of confiner swapping. CinemachineBrain handles blending between them."}
 {"key":"schema_version","value":"6"}
