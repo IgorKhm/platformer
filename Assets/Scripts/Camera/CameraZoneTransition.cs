@@ -1,40 +1,50 @@
 using UnityEngine;
 using Unity.Cinemachine;
 
-namespace Camera
+namespace CameraSystem
 {
+    /// <summary>
+    /// Each zone has its own CinemachineCamera with a CinemachineConfiner2D.
+    /// When the player enters a zone, that zone's vcam gets high priority,
+    /// and CinemachineBrain blends smoothly between them.
+    /// </summary>
     [RequireComponent(typeof(Collider2D))]
     public class CameraZoneTransition : MonoBehaviour
     {
-        private Collider2D zoneCollider;
+        [SerializeField] private CinemachineCamera vcam;
+
+        [Tooltip("Priority when this zone is active (higher = this camera wins)")]
+        [SerializeField] private int activePriority = 1;
+
+        [Tooltip("Priority when this zone is inactive")]
+        [SerializeField] private int inactivePriority = 0;
 
         private void Awake()
         {
-            zoneCollider = GetComponent<Collider2D>();
-            zoneCollider.isTrigger = true;
+            var col = GetComponent<Collider2D>();
+            col.isTrigger = true;
+
+            if (vcam != null)
+                vcam.Priority = inactivePriority;
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (!other.CompareTag("Player")) return;
-
-            // Find the active CinemachineCamera with a CinemachineConfiner2D
-            var vcam = FindAnyObjectByType<CinemachineCamera>();
             if (vcam == null)
             {
-                Debug.LogWarning("CameraZoneTransition: No CinemachineCamera found.");
+                Debug.LogWarning($"CameraZoneTransition on {name}: no vcam assigned.");
                 return;
             }
 
-            var confiner = vcam.GetComponent<CinemachineConfiner2D>();
-            if (confiner == null)
-            {
-                Debug.LogWarning("CameraZoneTransition: No CinemachineConfiner2D on virtual camera.");
-                return;
-            }
+            vcam.Priority = activePriority;
+        }
 
-            confiner.BoundingShape2D = zoneCollider;
-            confiner.InvalidateBoundingShapeCache();
+        private void OnTriggerExit2D(Collider2D other)
+        {
+            if (!other.CompareTag("Player")) return;
+            if (vcam != null)
+                vcam.Priority = inactivePriority;
         }
     }
 }

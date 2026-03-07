@@ -64,10 +64,9 @@ namespace Player
             if (!hasAnimator) return;
 
             var state = stateMachine.CurrentState;
-            bool grounded = state is PlayerState.Idle or PlayerState.Running or PlayerState.Landing;
 
             animator.SetBool(IsRunning, state == PlayerState.Running);
-            animator.SetBool(IsGrounded, grounded);
+            animator.SetBool(IsGrounded, stateMachine.IsGrounded);
 
             if (hasRb)
                 animator.SetFloat(YVelocity, rb.linearVelocity.y);

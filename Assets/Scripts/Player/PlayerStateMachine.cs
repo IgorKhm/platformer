@@ -16,6 +16,12 @@ namespace Player
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
         public PlayerState PreviousState { get; private set; } = PlayerState.Idle;
 
+        public bool IsGrounded => CurrentState is PlayerState.Idle or PlayerState.Running or PlayerState.Landing;
+
+        #if UNITY_EDITOR
+        [SerializeField] private bool debugLogging;
+        #endif
+
         public void ChangeState(PlayerState newState)
         {
             if (newState == CurrentState) return;
@@ -24,7 +30,8 @@ namespace Player
             CurrentState = newState;
 
             #if UNITY_EDITOR
-            Debug.Log($"State: {PreviousState} → {newState}");
+            if (debugLogging)
+                Debug.Log($"State: {PreviousState} → {newState}");
             #endif
         }
     }

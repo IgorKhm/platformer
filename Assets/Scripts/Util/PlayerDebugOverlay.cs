@@ -26,7 +26,7 @@ namespace Util
                 $"State: {stateMachine.CurrentState}\n" +
                 $"Velocity: ({velocity.x:F1}, {velocity.y:F1})\n" +
                 $"Speed: {speed:F1}\n" +
-                $"Grounded: {stateMachine.CurrentState is PlayerState.Idle or PlayerState.Running or PlayerState.Landing}";
+                $"Grounded: {stateMachine.IsGrounded}";
 
             GUI.skin.label.fontSize = 18;
             GUI.skin.label.normal.textColor = Color.white;
