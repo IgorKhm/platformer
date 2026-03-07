@@ -32,6 +32,18 @@ namespace Player
         [SerializeField] private float ceilingCheckDistance = 0.05f;
         [SerializeField] private LayerMask groundLayer;
 
+        [Header("Wall Detection")]
+        [SerializeField] private Vector2 wallCheckSize = new Vector2(0.1f, 0.8f);
+        [SerializeField] private float wallCheckDistance = 0.05f;
+
+        [Header("Wall Slide")]
+        [SerializeField] private float wallSlideSpeed = -2f;
+
+        [Header("Wall Jump")]
+        [SerializeField] private float wallJumpVelocityX = 8f;
+        [SerializeField] private float wallJumpVelocityY = 14f;
+        [SerializeField] private float wallJumpLockoutTime = 0.15f;
+
         private Rigidbody2D rb;
         private BoxCollider2D col;
         private PlayerStateMachine stateMachine;
@@ -42,9 +54,18 @@ namespace Player
         private bool wasGrounded;
         private bool jumpHeld;
 
+        // Wall state
+        private bool isTouchingWallLeft;
+        private bool isTouchingWallRight;
+        private int wallDirection; // +1 right, -1 left, 0 none
+        private bool isOnWall;
+
+        public int WallDirection => wallDirection;
+
         private Timer coyoteTimer = new Timer();
         private Timer jumpBufferTimer = new Timer();
         private Timer landingTimer = new Timer();
+        private Timer wallJumpLockoutTimer = new Timer();
 
         private const float LANDING_DURATION = 0.1f;
 
@@ -80,16 +101,18 @@ namespace Player
         private void FixedUpdate()
         {
             wasGrounded = isGrounded;
-            
+
             CheckGround();
+            CheckWalls();
             CheckCeiling();
             HandleCoyoteTime();
+            HandleWallState();
             ApplyHorizontalMovement();
             ApplyGravity();
             HandleJump();
-            
+
             rb.linearVelocity = velocity;
-            
+
             UpdateState();
             TickTimers();
         }
@@ -103,6 +126,25 @@ namespace Player
                 0f,
                 groundLayer
             );
+        }
+
+        private void CheckWalls()
+        {
+            Vector2 center = (Vector2)transform.position + col.offset;
+            float halfWidth = col.size.x * 0.5f;
+
+            Vector2 rightOrigin = center + Vector2.right * (halfWidth + wallCheckDistance);
+            isTouchingWallRight = Physics2D.OverlapBox(rightOrigin, wallCheckSize, 0f, groundLayer);
+
+            Vector2 leftOrigin = center + Vector2.left * (halfWidth + wallCheckDistance);
+            isTouchingWallLeft = Physics2D.OverlapBox(leftOrigin, wallCheckSize, 0f, groundLayer);
+
+            if (isTouchingWallRight && !isTouchingWallLeft)
+                wallDirection = 1;
+            else if (isTouchingWallLeft && !isTouchingWallRight)
+                wallDirection = -1;
+            else
+                wallDirection = 0;
         }
 
         private void CheckCeiling()
@@ -138,6 +180,31 @@ namespace Player
             }
         }
 
+        private void HandleWallState()
+        {
+            // Entry conditions
+            bool canAttachToWall = !isGrounded
+                && wallDirection != 0
+                && Mathf.Sign(moveInput.x) == wallDirection
+                && Mathf.Abs(moveInput.x) > 0.1f
+                && !wallJumpLockoutTimer.IsRunning;
+
+            if (canAttachToWall)
+            {
+                isOnWall = true;
+                velocity.x = 0f;
+                velocity.y = Mathf.Clamp(velocity.y, wallSlideSpeed, 0f);
+            }
+            else
+            {
+                isOnWall = false;
+            }
+
+            // Exit when grounded
+            if (isGrounded)
+                isOnWall = false;
+        }
+
         private bool CanJump()
         {
             return isGrounded || coyoteTimer.IsRunning;
@@ -145,19 +212,33 @@ namespace Player
 
         private void HandleJump()
         {
-            // Consume buffered jump
-            if (jumpBufferTimer.IsRunning && CanJump())
+            if (!jumpBufferTimer.IsRunning) return;
+
+            // Ground jump (priority)
+            if (CanJump())
             {
                 velocity.y = jumpVelocity;
                 jumpBufferTimer.Stop();
                 coyoteTimer.Stop();
                 isGrounded = false;
+                return;
             }
 
+            // Wall jump
+            if (isOnWall)
+            {
+                velocity.x = -wallDirection * wallJumpVelocityX;
+                velocity.y = wallJumpVelocityY;
+                jumpBufferTimer.Stop();
+                wallJumpLockoutTimer.Start(wallJumpLockoutTime);
+                isOnWall = false;
+            }
         }
 
         private void ApplyHorizontalMovement()
         {
+            if (isOnWall || wallJumpLockoutTimer.IsRunning) return;
+
             float maxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
             float targetSpeed = moveInput.x * maxSpeed;
             float accel;
@@ -180,6 +261,8 @@ namespace Player
 
         private void ApplyGravity()
         {
+            if (isOnWall) return;
+
             if (isGrounded && velocity.y <= 0f)
             {
                 // Stick to ground
@@ -195,6 +278,13 @@ namespace Player
 
         private void UpdateState()
         {
+            // Wall state takes priority over airborne states
+            if (isOnWall && !isGrounded)
+            {
+                stateMachine.ChangeState(PlayerState.WallSliding);
+                return;
+            }
+
             if (isGrounded)
             {
                 if (!wasGrounded)
@@ -226,22 +316,32 @@ namespace Player
             coyoteTimer.Tick(dt);
             jumpBufferTimer.Tick(dt);
             landingTimer.Tick(dt);
+            wallJumpLockoutTimer.Tick(dt);
         }
 
-        // --- Gizmos for ground check visualization ---
+        // --- Gizmos ---
 
         private void OnDrawGizmosSelected()
         {
             if (col == null) col = GetComponent<BoxCollider2D>();
             if (col == null) return;
 
+            // Ground check
             Vector2 origin = (Vector2)transform.position + col.offset + Vector2.down * (col.size.y * 0.5f);
             Gizmos.color = isGrounded ? Color.green : Color.red;
             Gizmos.DrawWireCube(origin + Vector2.down * groundCheckDistance, groundCheckSize);
 
+            // Ceiling check
             Vector2 ceilingOrigin = (Vector2)transform.position + col.offset + Vector2.up * (col.size.y * 0.5f);
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireCube(ceilingOrigin + Vector2.up * ceilingCheckDistance, ceilingCheckSize);
+
+            // Wall checks
+            Vector2 center = (Vector2)transform.position + col.offset;
+            float halfWidth = col.size.x * 0.5f;
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireCube(center + Vector2.right * (halfWidth + wallCheckDistance), wallCheckSize);
+            Gizmos.DrawWireCube(center + Vector2.left * (halfWidth + wallCheckDistance), wallCheckSize);
         }
     }
 }

@@ -3,9 +3,11 @@ using UnityEngine;
 namespace Player
 {
     [RequireComponent(typeof(PlayerStateMachine))]
+    [RequireComponent(typeof(PlayerController))]
     public class PlayerAnimator : MonoBehaviour
     {
         private PlayerStateMachine stateMachine;
+        private PlayerController playerController;
         private Rigidbody2D rb;
         private Animator animator;
         private SpriteRenderer spriteRenderer;
@@ -13,6 +15,7 @@ namespace Player
         private static readonly int IsRunning = Animator.StringToHash("isRunning");
         private static readonly int IsGrounded = Animator.StringToHash("isGrounded");
         private static readonly int YVelocity = Animator.StringToHash("yVelocity");
+        private static readonly int IsOnWall = Animator.StringToHash("isOnWall");
 
         private float lastNonZeroX;
         private bool hasAnimator;
@@ -22,6 +25,7 @@ namespace Player
         private void Awake()
         {
             stateMachine = GetComponent<PlayerStateMachine>();
+            playerController = GetComponent<PlayerController>();
             rb = GetComponent<Rigidbody2D>();
             animator = GetComponent<Animator>();
             spriteRenderer = GetComponent<SpriteRenderer>();
@@ -47,6 +51,18 @@ namespace Player
         {
             if (!hasSpriteRenderer || !hasRb) return;
 
+            // Wall sliding: face the wall (sprite faces opposite of wall direction)
+            if (stateMachine.CurrentState == PlayerState.WallSliding)
+            {
+                int wallDir = playerController.WallDirection;
+                if (wallDir != 0)
+                {
+                    spriteRenderer.flipX = wallDir > 0;
+                    lastNonZeroX = -wallDir; // keep consistent when leaving wall
+                }
+                return;
+            }
+
             float xVel = rb.linearVelocity.x;
             if (Mathf.Abs(xVel) > 0.1f)
             {
@@ -67,6 +83,7 @@ namespace Player
 
             animator.SetBool(IsRunning, state == PlayerState.Running);
             animator.SetBool(IsGrounded, stateMachine.IsGrounded);
+            animator.SetBool(IsOnWall, state == PlayerState.WallSliding);
 
             if (hasRb)
                 animator.SetFloat(YVelocity, rb.linearVelocity.y);
