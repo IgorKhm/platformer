@@ -728,6 +728,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1201499116 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4706258567757939826, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+  m_PrefabInstance: {fileID: 5278708037269536783}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c38a70b5456910f4ba014ede08aa2c63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &1628923274 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6765340831627503723, guid: 137841b1bb6538548ba89c701eaa8e35, type: 3}
@@ -1168,6 +1179,46 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.size
+      value: 21
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_ActionId
+      value: b2c3d4e5-f6a7-8901-bcde-f12345678901
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_ActionName
+      value: 'Player/Grab[/Keyboard/z]'
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1201499116}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OnGrab
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Player.PlayerController, GameAssembly
+      objectReference: {fileID: 0}
+    - target: {fileID: 1912955899500036662, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: m_ActionEvents.Array.data[20].m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
     - target: {fileID: 3986785808232265036, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1207,6 +1258,22 @@ PrefabInstance:
     - target: {fileID: 3986785808232265036, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4706258567757939826, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: groundCheckSize.x
+      value: 0.99
+      objectReference: {fileID: 0}
+    - target: {fileID: 4706258567757939826, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: groundCheckSize.y
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 4706258567757939826, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: wallCheckDistance
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 4706258567757939826, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
+      propertyPath: groundCheckDistance
+      value: 0.009
       objectReference: {fileID: 0}
     - target: {fileID: 5865194654016803934, guid: 7441bd7bc897ca6488f52c809c114a9c, type: 3}
       propertyPath: m_Name

@@ -36,8 +36,12 @@ namespace Player
         [SerializeField] private Vector2 wallCheckSize = new Vector2(0.1f, 0.8f);
         [SerializeField] private float wallCheckDistance = 0.05f;
 
+        [Header("Wall Grab")]
+        [SerializeField] private float wallGrabStamina = 2f;
+
         [Header("Wall Slide")]
         [SerializeField] private float wallSlideSpeed = -2f;
+        [SerializeField] private float wallSlideAcceleration = 20f;
 
         [Header("Wall Jump")]
         [SerializeField] private float wallJumpVelocityX = 8f;
@@ -49,16 +53,21 @@ namespace Player
         private PlayerStateMachine stateMachine;
 
         private Vector2 moveInput;
+        private float moveInputX; // horizontal input clamped to -1/0/1 magnitude
         private Vector2 velocity;
         private bool isGrounded;
         private bool wasGrounded;
         private bool jumpHeld;
+        private bool grabHeld;
 
         // Wall state
         private bool isTouchingWallLeft;
         private bool isTouchingWallRight;
         private int wallDirection; // +1 right, -1 left, 0 none
         private bool isOnWall;
+        private bool isWallGrabbing;
+
+        private float currentGrabStamina;
 
         public int WallDirection => wallDirection;
 
@@ -84,6 +93,7 @@ namespace Player
         public void OnMove(InputAction.CallbackContext context)
         {
             moveInput = context.ReadValue<Vector2>();
+            moveInputX = Mathf.Abs(moveInput.x) > 0.1f ? Mathf.Sign(moveInput.x) : 0f;
         }
 
         public void OnJump(InputAction.CallbackContext context)
@@ -94,6 +104,11 @@ namespace Player
             }
 
             jumpHeld = !context.canceled;
+        }
+
+        public void OnGrab(InputAction.CallbackContext context)
+        {
+            grabHeld = !context.canceled;
         }
 
         // --- Physics loop ---
@@ -126,6 +141,9 @@ namespace Player
                 0f,
                 groundLayer
             );
+
+            if (isGrounded)
+                currentGrabStamina = wallGrabStamina;
         }
 
         private void CheckWalls()
@@ -182,27 +200,35 @@ namespace Player
 
         private void HandleWallState()
         {
-            // Entry conditions
-            bool canAttachToWall = !isGrounded
-                && wallDirection != 0
-                && Mathf.Sign(moveInput.x) == wallDirection
-                && Mathf.Abs(moveInput.x) > 0.1f
-                && !wallJumpLockoutTimer.IsRunning;
+            // Early exit: grounded, no wall, or lockout active → detach
+            if (isGrounded || wallDirection == 0 || wallJumpLockoutTimer.IsRunning)
+            {
+                isOnWall = false;
+                isWallGrabbing = false;
+                return;
+            }
 
-            if (canAttachToWall)
+            if (grabHeld && currentGrabStamina > 0f)
             {
                 isOnWall = true;
+                isWallGrabbing = true;
                 velocity.x = 0f;
-                velocity.y = Mathf.Clamp(velocity.y, wallSlideSpeed, 0f);
-            }
-            else
-            {
-                isOnWall = false;
+                velocity.y = 0f;
+                currentGrabStamina -= Time.fixedDeltaTime;
+                return;
             }
 
-            // Exit when grounded
-            if (isGrounded)
-                isOnWall = false;
+            if (velocity.y <= 0f && moveInputX != 0f && (int)moveInputX == wallDirection)
+            {
+                isOnWall = true;
+                isWallGrabbing = false;
+                velocity.x = 0f;
+                velocity.y = Mathf.MoveTowards(velocity.y, wallSlideSpeed, wallSlideAcceleration * Time.fixedDeltaTime);
+                return;
+            }
+
+            isOnWall = false;
+            isWallGrabbing = false;
         }
 
         private bool CanJump()
@@ -224,14 +250,25 @@ namespace Player
                 return;
             }
 
-            // Wall jump
-            if (isOnWall)
+            // Wall jump (grab, slide, or just touching wall while airborne)
+            if (isOnWall || (!isGrounded && wallDirection != 0))
             {
-                velocity.x = -wallDirection * wallJumpVelocityX;
+                if (isWallGrabbing && moveInputX != -wallDirection)
+                {
+                    // Grab + no away input → jump straight up
+                    velocity.x = 0f;
+                }
+                else
+                {
+                    // Grab + pressing away, slide, or freefall touch → kick away from wall
+                    velocity.x = -wallDirection * wallJumpVelocityX;
+                }
+
                 velocity.y = wallJumpVelocityY;
                 jumpBufferTimer.Stop();
                 wallJumpLockoutTimer.Start(wallJumpLockoutTime);
                 isOnWall = false;
+                isWallGrabbing = false;
             }
         }
 
@@ -240,7 +277,7 @@ namespace Player
             if (isOnWall || wallJumpLockoutTimer.IsRunning) return;
 
             float maxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
-            float targetSpeed = moveInput.x * maxSpeed;
+            float targetSpeed = moveInputX * maxSpeed;
             float accel;
 
             if (isGrounded)
@@ -252,7 +289,7 @@ namespace Player
                 accel = Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration;
 
                 // Preserve ground speed — don't clamp if already going faster
-                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInput.x))
+                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
                     return;
             }
 
@@ -281,7 +318,7 @@ namespace Player
             // Wall state takes priority over airborne states
             if (isOnWall && !isGrounded)
             {
-                stateMachine.ChangeState(PlayerState.WallSliding);
+                stateMachine.ChangeState(isWallGrabbing ? PlayerState.WallGrab : PlayerState.WallSliding);
                 return;
             }
 
