@@ -9,13 +9,14 @@ namespace Player
         private PlayerStateMachine stateMachine;
         private PlayerController playerController;
         private Rigidbody2D rb;
-        private Animator animator;
-        private SpriteRenderer spriteRenderer;
+        [SerializeField] private Animator animator;
+        [SerializeField] private SpriteRenderer spriteRenderer;
 
         private static readonly int IsRunning = Animator.StringToHash("isRunning");
         private static readonly int IsGrounded = Animator.StringToHash("isGrounded");
         private static readonly int YVelocity = Animator.StringToHash("yVelocity");
         private static readonly int IsOnWall = Animator.StringToHash("isOnWall");
+        private static readonly int IsWallGrab = Animator.StringToHash("isWallGrab");
 
         private float lastNonZeroX;
         private bool hasAnimator;
@@ -27,8 +28,10 @@ namespace Player
             stateMachine = GetComponent<PlayerStateMachine>();
             playerController = GetComponent<PlayerController>();
             rb = GetComponent<Rigidbody2D>();
-            animator = GetComponent<Animator>();
-            spriteRenderer = GetComponent<SpriteRenderer>();
+            if (animator == null)
+                animator = GetComponentInChildren<Animator>();
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
 
             hasRb = rb != null;
             hasAnimator = animator != null;
@@ -51,8 +54,8 @@ namespace Player
         {
             if (!hasSpriteRenderer || !hasRb) return;
 
-            // Wall sliding: face the wall (sprite faces opposite of wall direction)
-            if (stateMachine.CurrentState == PlayerState.WallSliding)
+            // Wall states: face the wall (sprite faces opposite of wall direction)
+            if (stateMachine.CurrentState is PlayerState.WallSliding or PlayerState.WallGrab)
             {
                 int wallDir = playerController.WallDirection;
                 if (wallDir != 0)
@@ -83,7 +86,8 @@ namespace Player
 
             animator.SetBool(IsRunning, state == PlayerState.Running);
             animator.SetBool(IsGrounded, stateMachine.IsGrounded);
-            animator.SetBool(IsOnWall, state == PlayerState.WallSliding);
+            animator.SetBool(IsOnWall, state is PlayerState.WallSliding or PlayerState.WallGrab);
+            animator.SetBool(IsWallGrab, state == PlayerState.WallGrab);
 
             if (hasRb)
                 animator.SetFloat(YVelocity, rb.linearVelocity.y);
