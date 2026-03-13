@@ -45,8 +45,8 @@ namespace Player
 
         [Header("Wall Jump")]
         [SerializeField] private float wallJumpVelocityX = 8f;
-        [SerializeField] private float wallJumpVelocityY = 14f;
         [SerializeField] private float wallJumpLockoutTime = 0.15f;
+        [SerializeField] private float wallJumpMinKickX = 3f;
 
         private Rigidbody2D rb;
         private BoxCollider2D col;
@@ -68,6 +68,7 @@ namespace Player
         private bool isWallGrabbing;
 
         private float currentGrabStamina;
+        private int wallJumpDir;
 
         public int WallDirection => wallDirection;
 
@@ -117,8 +118,8 @@ namespace Player
         {
             wasGrounded = isGrounded;
 
-            CheckGround();
             CheckWalls();
+            CheckGround();
             CheckCeiling();
             HandleCoyoteTime();
             HandleWallState();
@@ -135,12 +136,17 @@ namespace Player
         private void CheckGround()
         {
             Vector2 origin = (Vector2)transform.position + col.offset + Vector2.down * (col.size.y * 0.5f);
-            isGrounded = Physics2D.OverlapBox(
-                origin + Vector2.down * groundCheckDistance,
-                groundCheckSize,
-                0f,
-                groundLayer
-            );
+
+            // Shrink and shift ground check away from wall to prevent false grounding
+            Vector2 checkSize = groundCheckSize;
+            Vector2 checkOrigin = origin + Vector2.down * groundCheckDistance;
+            if (wallDirection != 0)
+            {
+                checkSize.x *= 0.3f;
+                checkOrigin.x -= wallDirection * checkSize.x * 0.5f;
+            }
+
+            isGrounded = Physics2D.OverlapBox(checkOrigin, checkSize, 0f, groundLayer);
 
             if (isGrounded)
                 currentGrabStamina = wallGrabStamina;
@@ -255,8 +261,8 @@ namespace Player
             {
                 if (isWallGrabbing && moveInputX != -wallDirection)
                 {
-                    // Grab + no away input → jump straight up
-                    velocity.x = 0f;
+                    // Grab + no away input → small kick to prevent hover
+                    velocity.x = -wallDirection * wallJumpMinKickX;
                 }
                 else
                 {
@@ -264,7 +270,8 @@ namespace Player
                     velocity.x = -wallDirection * wallJumpVelocityX;
                 }
 
-                velocity.y = wallJumpVelocityY;
+                velocity.y = jumpVelocity;
+                wallJumpDir = -wallDirection;
                 jumpBufferTimer.Stop();
                 wallJumpLockoutTimer.Start(wallJumpLockoutTime);
                 isOnWall = false;
@@ -274,26 +281,41 @@ namespace Player
 
         private void ApplyHorizontalMovement()
         {
-            if (isOnWall || wallJumpLockoutTimer.IsRunning) return;
+            if (isOnWall) return;
+            float targetSpeed;
+            // Graduated lockout: ramp air control from 0% → 100% over lockout window
+            if (wallJumpLockoutTimer.IsRunning)
+            {
+                float t = 1f - (wallJumpLockoutTimer.TimeRemaining / wallJumpLockoutTimer.Duration);
+                targetSpeed = moveInputX * maxAirSpeed;
+                float accel = (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration) * t;
+
+                // Preserve wall-jump kick speed in the jump direction
+                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == wallJumpDir)
+                    return;
+
+                velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
+                return;
+            }
 
             float maxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
-            float targetSpeed = moveInputX * maxSpeed;
-            float accel;
+            targetSpeed = moveInputX * maxSpeed;
+            float acceleration;
 
             if (isGrounded)
             {
-                accel = Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration;
+                acceleration = Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration;
             }
             else
             {
-                accel = Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration;
+                acceleration = Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration;
 
                 // Preserve ground speed — don't clamp if already going faster
                 if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
                     return;
             }
 
-            velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
+            velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
         }
 
         private void ApplyGravity()
