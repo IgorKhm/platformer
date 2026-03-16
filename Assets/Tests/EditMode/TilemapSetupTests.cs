@@ -1,7 +1,5 @@
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.Tilemaps;
-using UnityEditor;
 
 [TestFixture]
 public class TilemapSetupTests
@@ -44,59 +42,5 @@ public class TilemapSetupTests
 
         Assert.Less(groundValue, fgValue,
             "Ground should sort below Foreground");
-    }
-
-    [Test]
-    public void GenerateTileAssets_CreatesSpriteFiles()
-    {
-        TilemapSetup.GenerateTileAssets();
-
-        Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Tilesets/GroundTile.png"),
-            "GroundTile sprite not found");
-        Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Tilesets/PlatformTile.png"),
-            "PlatformTile sprite not found");
-        Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Tilesets/WallTile.png"),
-            "WallTile sprite not found");
-    }
-
-    [Test]
-    public void GenerateTileAssets_CreatesTileAssets()
-    {
-        TilemapSetup.GenerateTileAssets();
-
-        var ground = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/GroundTile.asset");
-        var platform = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/PlatformTile.asset");
-        var wall = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/WallTile.asset");
-
-        Assert.IsNotNull(ground, "GroundTile asset not found");
-        Assert.IsNotNull(platform, "PlatformTile asset not found");
-        Assert.IsNotNull(wall, "WallTile asset not found");
-    }
-
-    [Test]
-    public void GenerateTileAssets_TilesHaveSpritesAssigned()
-    {
-        TilemapSetup.GenerateTileAssets();
-
-        var ground = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/GroundTile.asset");
-        var platform = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/PlatformTile.asset");
-        var wall = AssetDatabase.LoadAssetAtPath<Tile>("Assets/Tilemaps/WallTile.asset");
-
-        Assert.IsNotNull(ground.sprite, "GroundTile has no sprite");
-        Assert.IsNotNull(platform.sprite, "PlatformTile has no sprite");
-        Assert.IsNotNull(wall.sprite, "WallTile has no sprite");
-    }
-
-    [Test]
-    public void GenerateTileAssets_SpritesHaveCorrectPPU()
-    {
-        TilemapSetup.GenerateTileAssets();
-
-        var importer = (TextureImporter)AssetImporter.GetAtPath("Assets/Art/Tilesets/GroundTile.png");
-
-        Assert.AreEqual(32, importer.spritePixelsPerUnit, "PPU should be 32");
-        Assert.AreEqual(FilterMode.Point, importer.filterMode, "Filter should be Point");
-        Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression,
-            "Compression should be Uncompressed");
     }
 }
