@@ -35,12 +35,22 @@ public class TilemapSetupTests
     }
 
     [Test]
-    public void SortingLayers_GroundSortsBelowForeground()
+    public void SortingLayers_GroundSortsBelowDefault()
     {
         int groundValue = SortingLayer.GetLayerValueFromName("Ground");
+        int defaultValue = SortingLayer.GetLayerValueFromName("Default");
+
+        Assert.Less(groundValue, defaultValue,
+            "Ground should sort below Default (player renders on Default)");
+    }
+
+    [Test]
+    public void SortingLayers_DefaultSortsBelowForeground()
+    {
+        int defaultValue = SortingLayer.GetLayerValueFromName("Default");
         int fgValue = SortingLayer.GetLayerValueFromName("Foreground");
 
-        Assert.Less(groundValue, fgValue,
-            "Ground should sort below Foreground");
+        Assert.Less(defaultValue, fgValue,
+            "Default should sort below Foreground");
     }
 }
