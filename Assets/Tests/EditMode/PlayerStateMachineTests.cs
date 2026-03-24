@@ -79,5 +79,47 @@ namespace Tests.EditMode
             Assert.AreEqual(PlayerState.Idle, stateMachine.CurrentState);
             Assert.AreEqual(PlayerState.Landing, stateMachine.PreviousState);
         }
+
+        [Test]
+        public void Dashing_StateTransitionWorks()
+        {
+            stateMachine.ChangeState(PlayerState.Running);
+            stateMachine.ChangeState(PlayerState.Dashing);
+
+            Assert.AreEqual(PlayerState.Dashing, stateMachine.CurrentState);
+            Assert.AreEqual(PlayerState.Running, stateMachine.PreviousState);
+        }
+
+        [Test]
+        public void Dashing_IsNotGrounded()
+        {
+            stateMachine.ChangeState(PlayerState.Dashing);
+
+            Assert.IsFalse(stateMachine.IsGrounded);
+        }
+
+        [Test]
+        public void Dashing_PreviousStateTracksCorrectly()
+        {
+            stateMachine.ChangeState(PlayerState.Running);
+            stateMachine.ChangeState(PlayerState.Jumping);
+            stateMachine.ChangeState(PlayerState.Dashing);
+
+            Assert.AreEqual(PlayerState.Dashing, stateMachine.CurrentState);
+            Assert.AreEqual(PlayerState.Jumping, stateMachine.PreviousState);
+        }
+
+        [Test]
+        public void Dashing_FullCycleWithDash()
+        {
+            stateMachine.ChangeState(PlayerState.Running);
+            stateMachine.ChangeState(PlayerState.Dashing);
+            stateMachine.ChangeState(PlayerState.Falling);
+            stateMachine.ChangeState(PlayerState.Landing);
+            stateMachine.ChangeState(PlayerState.Idle);
+
+            Assert.AreEqual(PlayerState.Idle, stateMachine.CurrentState);
+            Assert.AreEqual(PlayerState.Landing, stateMachine.PreviousState);
+        }
     }
 }

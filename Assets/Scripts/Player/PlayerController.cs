@@ -48,6 +48,12 @@ namespace Player
         [SerializeField] private float wallJumpLockoutTime = 0.15f;
         [SerializeField] private float wallJumpMinKickX = 3f;
 
+        [Header("Dash")]
+        [SerializeField] private float dashSpeed = 20f;
+        [SerializeField] private float dashDuration = 0.12f;
+        [SerializeField] private float dashLockoutTime = 0.15f;
+        [SerializeField] private float dashMomentumRetention = 0.3f;
+
         private Rigidbody2D rb;
         private BoxCollider2D col;
         private PlayerStateMachine stateMachine;
@@ -70,12 +76,21 @@ namespace Player
         private float currentGrabStamina;
         private int wallJumpDir;
 
+        // Dash state
+        private bool isDashing;
+        private bool hasDashCharge = true;
+        private float facingDirection = 1f;
+        private Vector2 dashDirection;
+
         public int WallDirection => wallDirection;
+        public float FacingDirection => facingDirection;
 
         private Timer coyoteTimer = new Timer();
         private Timer jumpBufferTimer = new Timer();
         private Timer landingTimer = new Timer();
         private Timer wallJumpLockoutTimer = new Timer();
+        private Timer dashTimer = new Timer();
+        private Timer dashLockoutTimer = new Timer();
 
         private const float LANDING_DURATION = 0.1f;
 
@@ -112,6 +127,15 @@ namespace Player
             grabHeld = !context.canceled;
         }
 
+        public void OnDash(InputAction.CallbackContext context)
+        {
+            if (context.started && !isDashing && hasDashCharge)
+            {
+                hasDashCharge = false;
+                StartDash();
+            }
+        }
+
         // --- Physics loop ---
 
         private void FixedUpdate()
@@ -123,8 +147,12 @@ namespace Player
             CheckCeiling();
             HandleCoyoteTime();
             HandleWallState();
-            ApplyHorizontalMovement();
-            ApplyGravity();
+            HandleDash();
+            if (!isDashing)
+            {
+                ApplyHorizontalMovement();
+                ApplyGravity();
+            }
             HandleJump();
 
             rb.linearVelocity = velocity;
@@ -201,6 +229,7 @@ namespace Player
             if (!wasGrounded && isGrounded)
             {
                 coyoteTimer.Stop();
+                hasDashCharge = true;
             }
         }
 
@@ -279,10 +308,67 @@ namespace Player
             }
         }
 
+        private Vector2 GetDashDirection()
+        {
+            if (moveInput.sqrMagnitude > 0.01f)
+                return moveInput.normalized;
+            return new Vector2(facingDirection, 0f);
+        }
+
+        private void StartDash()
+        {
+            isDashing = true;
+            dashDirection = GetDashDirection();
+            dashTimer.Start(dashDuration);
+            velocity = dashDirection * dashSpeed;
+            if (Mathf.Abs(dashDirection.x) > 0.01f)
+                facingDirection = Mathf.Sign(dashDirection.x);
+            stateMachine.ChangeState(PlayerState.Dashing);
+        }
+
+        private void EndDash()
+        {
+            isDashing = false;
+            dashTimer.Stop();
+            velocity = dashDirection * (dashSpeed * dashMomentumRetention);
+            dashLockoutTimer.Start(dashLockoutTime);
+        }
+
+        private void HandleDash()
+        {
+            if (!isDashing) return;
+            if (!dashTimer.IsRunning) { EndDash(); return; }
+
+            // Wall cancellation
+            if ((dashDirection.x > 0f && isTouchingWallRight) ||
+                (dashDirection.x < 0f && isTouchingWallLeft))
+            {
+                EndDash();
+                velocity.x = 0f;
+                return;
+            }
+
+            velocity = dashDirection * dashSpeed;
+        }
+
         private void ApplyHorizontalMovement()
         {
             if (isOnWall) return;
             float targetSpeed;
+
+            // Dash lockout: ramp control back after dash ends
+            if (dashLockoutTimer.IsRunning)
+            {
+                float t = 1f - (dashLockoutTimer.TimeRemaining / dashLockoutTimer.Duration);
+                float dashMaxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
+                targetSpeed = moveInputX * dashMaxSpeed;
+                float accel = (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration) * t;
+                if (Mathf.Abs(velocity.x) > dashMaxSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(dashDirection.x))
+                    return;
+                velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
+                return;
+            }
+
             // Graduated lockout: ramp air control from 0% → 100% over lockout window
             if (wallJumpLockoutTimer.IsRunning)
             {
@@ -316,6 +402,9 @@ namespace Player
             }
 
             velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
+
+            if (Mathf.Abs(velocity.x) > 0.1f)
+                facingDirection = Mathf.Sign(velocity.x);
         }
 
         private void ApplyGravity()
@@ -337,6 +426,8 @@ namespace Player
 
         private void UpdateState()
         {
+            if (isDashing) return;
+
             // Wall state takes priority over airborne states
             if (isOnWall && !isGrounded)
             {
@@ -376,6 +467,8 @@ namespace Player
             jumpBufferTimer.Tick(dt);
             landingTimer.Tick(dt);
             wallJumpLockoutTimer.Tick(dt);
+            dashTimer.Tick(dt);
+            dashLockoutTimer.Tick(dt);
         }
 
         // --- Gizmos ---
