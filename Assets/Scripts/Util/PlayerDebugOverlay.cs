@@ -33,11 +33,12 @@ namespace Util
                 $"Velocity: ({velocity.x:F1}, {velocity.y:F1})\n" +
                 $"Speed: {speed:F1}\n" +
                 $"Grounded: {stateMachine.IsGrounded}\n" +
-                $"Wall: {wallLabel}";
+                $"Wall: {wallLabel}\n" +
+                $"Dash Charge: {playerController.HasDashCharge}";
 
             GUI.skin.label.fontSize = 18;
             GUI.skin.label.normal.textColor = Color.white;
-            GUI.Label(new Rect(10, 10, 400, 140), text);
+            GUI.Label(new Rect(10, 10, 400, 170), text);
         }
 #endif
     }

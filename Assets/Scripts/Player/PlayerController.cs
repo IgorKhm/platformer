@@ -51,6 +51,7 @@ namespace Player
         [Header("Dash")]
         [SerializeField] private float dashSpeed = 24f;
         [SerializeField] private float dashDuration = 0.19f;
+        [SerializeField] private float dashAcceleration = 300f;
         [SerializeField] private float dashLockoutTime = 0.15f;
         [SerializeField] private float dashMomentumRetention = 0.3f;
 
@@ -83,6 +84,7 @@ namespace Player
 
         public int WallDirection => wallDirection;
         public float FacingDirection => facingDirection;
+        public bool HasDashCharge => hasDashCharge;
 
         private Timer coyoteTimer = new Timer();
         private Timer jumpBufferTimer = new Timer();
@@ -145,6 +147,7 @@ namespace Player
             CheckGround();
             CheckCeiling();
             HandleCoyoteTime();
+
             HandleWallState();
             HandleDash();
             if (!isDashing)
@@ -228,7 +231,6 @@ namespace Player
             if (!wasGrounded && isGrounded)
             {
                 coyoteTimer.Stop();
-                hasDashCharge = true;
             }
         }
 
@@ -319,7 +321,7 @@ namespace Player
             isDashing = true;
             moveDirection = GetDashDirection();
             dashTimer.Start(dashDuration);
-            velocity = moveDirection * dashSpeed;
+            velocity = Vector2.zero;
             if (Mathf.Abs(moveDirection.x) > 0.01f)
                 facingDirection = Mathf.Sign(moveDirection.x);
             stateMachine.ChangeState(PlayerState.Dashing);
@@ -335,6 +337,9 @@ namespace Player
 
         private void HandleDash()
         {
+            if (isGrounded && !isDashing)
+                hasDashCharge = true;
+
             if (!isDashing) return;
             if (!dashTimer.IsRunning) { EndDash(); return; }
 
@@ -347,7 +352,7 @@ namespace Player
                 return;
             }
 
-            velocity = moveDirection * dashSpeed;
+            velocity = Vector2.MoveTowards(velocity, moveDirection * dashSpeed, dashAcceleration * Time.fixedDeltaTime);
         }
 
         private float GetLockoutFactor()
