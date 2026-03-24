@@ -49,8 +49,8 @@ namespace Player
         [SerializeField] private float wallJumpMinKickX = 3f;
 
         [Header("Dash")]
-        [SerializeField] private float dashSpeed = 20f;
-        [SerializeField] private float dashDuration = 0.12f;
+        [SerializeField] private float dashSpeed = 24f;
+        [SerializeField] private float dashDuration = 0.19f;
         [SerializeField] private float dashLockoutTime = 0.15f;
         [SerializeField] private float dashMomentumRetention = 0.3f;
 
@@ -74,13 +74,12 @@ namespace Player
         private bool isWallGrabbing;
 
         private float currentGrabStamina;
-        private int wallJumpDir;
 
-        // Dash state
+        // Ability state (shared by dash + wall jump)
+        private Vector2 moveDirection;
         private bool isDashing;
         private bool hasDashCharge = true;
         private float facingDirection = 1f;
-        private Vector2 dashDirection;
 
         public int WallDirection => wallDirection;
         public float FacingDirection => facingDirection;
@@ -300,7 +299,7 @@ namespace Player
                 }
 
                 velocity.y = jumpVelocity;
-                wallJumpDir = -wallDirection;
+                moveDirection = new Vector2(-wallDirection, 0f);
                 jumpBufferTimer.Stop();
                 wallJumpLockoutTimer.Start(wallJumpLockoutTime);
                 isOnWall = false;
@@ -318,11 +317,11 @@ namespace Player
         private void StartDash()
         {
             isDashing = true;
-            dashDirection = GetDashDirection();
+            moveDirection = GetDashDirection();
             dashTimer.Start(dashDuration);
-            velocity = dashDirection * dashSpeed;
-            if (Mathf.Abs(dashDirection.x) > 0.01f)
-                facingDirection = Mathf.Sign(dashDirection.x);
+            velocity = moveDirection * dashSpeed;
+            if (Mathf.Abs(moveDirection.x) > 0.01f)
+                facingDirection = Mathf.Sign(moveDirection.x);
             stateMachine.ChangeState(PlayerState.Dashing);
         }
 
@@ -330,7 +329,7 @@ namespace Player
         {
             isDashing = false;
             dashTimer.Stop();
-            velocity = dashDirection * (dashSpeed * dashMomentumRetention);
+            velocity = moveDirection * (dashSpeed * dashMomentumRetention);
             dashLockoutTimer.Start(dashLockoutTime);
         }
 
@@ -340,66 +339,42 @@ namespace Player
             if (!dashTimer.IsRunning) { EndDash(); return; }
 
             // Wall cancellation
-            if ((dashDirection.x > 0f && isTouchingWallRight) ||
-                (dashDirection.x < 0f && isTouchingWallLeft))
+            if ((moveDirection.x > 0f && isTouchingWallRight) ||
+                (moveDirection.x < 0f && isTouchingWallLeft))
             {
                 EndDash();
                 velocity.x = 0f;
                 return;
             }
 
-            velocity = dashDirection * dashSpeed;
+            velocity = moveDirection * dashSpeed;
+        }
+
+        private float GetLockoutFactor()
+        {
+            if (dashLockoutTimer.IsRunning)
+                return 1f - (dashLockoutTimer.TimeRemaining / dashLockoutTimer.Duration);
+            if (wallJumpLockoutTimer.IsRunning)
+                return 1f - (wallJumpLockoutTimer.TimeRemaining / wallJumpLockoutTimer.Duration);
+            return 1f;
         }
 
         private void ApplyHorizontalMovement()
         {
             if (isOnWall) return;
-            float targetSpeed;
-
-            // Dash lockout: ramp control back after dash ends
-            if (dashLockoutTimer.IsRunning)
-            {
-                float t = 1f - (dashLockoutTimer.TimeRemaining / dashLockoutTimer.Duration);
-                float dashMaxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
-                targetSpeed = moveInputX * dashMaxSpeed;
-                float accel = (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration) * t;
-                if (Mathf.Abs(velocity.x) > dashMaxSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(dashDirection.x))
-                    return;
-                velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
-                return;
-            }
-
-            // Graduated lockout: ramp air control from 0% → 100% over lockout window
-            if (wallJumpLockoutTimer.IsRunning)
-            {
-                float t = 1f - (wallJumpLockoutTimer.TimeRemaining / wallJumpLockoutTimer.Duration);
-                targetSpeed = moveInputX * maxAirSpeed;
-                float accel = (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration) * t;
-
-                // Preserve wall-jump kick speed in the jump direction
-                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == wallJumpDir)
-                    return;
-
-                velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
-                return;
-            }
 
             float maxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
-            targetSpeed = moveInputX * maxSpeed;
-            float acceleration;
+            float targetSpeed = moveInputX * maxSpeed;
+            float lockout = GetLockoutFactor();
 
-            if (isGrounded)
-            {
-                acceleration = Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration;
-            }
-            else
-            {
-                acceleration = Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration;
+            float baseAccel = isGrounded
+                ? (Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration)
+                : (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration);
+            float acceleration = baseAccel * lockout;
 
-                // Preserve ground speed — don't clamp if already going faster
-                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
-                    return;
-            }
+            // Preserve above-max momentum while pressing the same direction
+            if (Mathf.Abs(velocity.x) > maxSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
+                return;
 
             velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
 
