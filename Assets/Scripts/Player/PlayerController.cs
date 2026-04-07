@@ -115,6 +115,8 @@ namespace Player
 
         public void OnJump(InputAction.CallbackContext context)
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
+
             if (context.started)
             {
                 jumpBufferTimer.Start(jumpBufferTime);
@@ -125,11 +127,13 @@ namespace Player
 
         public void OnGrab(InputAction.CallbackContext context)
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
             grabHeld = !context.canceled;
         }
 
         public void OnDash(InputAction.CallbackContext context)
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
             if (context.started && !isDashing && hasDashCharge)
             {
                 hasDashCharge = false;
@@ -137,10 +141,30 @@ namespace Player
             }
         }
 
+        public void ResetMotionState()
+        {
+            velocity = Vector2.zero;
+            isDashing = false;
+            dashTimer.Stop();
+            dashLockoutTimer.Stop();
+            wallJumpLockoutTimer.Stop();
+            jumpBufferTimer.Stop();
+            coyoteTimer.Stop();
+            isOnWall = false;
+            isWallGrabbing = false;
+            hasDashCharge = true;
+        }
+
         // --- Physics loop ---
 
         private void FixedUpdate()
         {
+            if (stateMachine.CurrentState == PlayerState.Dead)
+            {
+                rb.linearVelocity = Vector2.zero;
+                return;
+            }
+
             wasGrounded = isGrounded;
 
             CheckWalls();

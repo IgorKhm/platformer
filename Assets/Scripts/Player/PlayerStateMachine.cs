@@ -11,7 +11,8 @@ namespace Player
         Landing,
         WallSliding,
         WallGrab,
-        Dashing
+        Dashing,
+        Dead
     }
 
     public class PlayerStateMachine : MonoBehaviour

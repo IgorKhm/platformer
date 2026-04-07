@@ -47,6 +47,8 @@ namespace Player
 
         private void LateUpdate()
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
+
             HandleSpriteFlip();
             UpdateAnimatorParameters();
         }

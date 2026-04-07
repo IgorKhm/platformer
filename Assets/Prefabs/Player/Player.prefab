@@ -103,6 +103,7 @@ GameObject:
   - component: {fileID: 4182461912481835229}
   - component: {fileID: 1912955899500036662}
   - component: {fileID: 4534627696243457693}
+  - component: {fileID: 195922315378185068}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -236,21 +237,26 @@ MonoBehaviour:
   terminalVelocity: -20
   coyoteTime: 0.1
   jumpBufferTime: 0.1
-  groundCheckSize: {x: 0.9, y: 0.1}
-  groundCheckDistance: 0.05
+  groundCheckSize: {x: 0.97, y: 0.05}
+  groundCheckDistance: 0.009
   ceilingCheckSize: {x: 0.9, y: 0.1}
   ceilingCheckDistance: 0.05
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
   wallCheckSize: {x: 0.1, y: 0.8}
-  wallCheckDistance: 0.05
+  wallCheckDistance: 0.01
   wallGrabStamina: 2
   wallSlideSpeed: -2
   wallSlideAcceleration: 20
   wallJumpVelocityX: 8
-  wallJumpVelocityY: 14
   wallJumpLockoutTime: 0.15
+  wallJumpMinKickX: 3
+  dashSpeed: 24
+  dashDuration: 0.19
+  dashAcceleration: 300
+  dashLockoutTime: 0.15
+  dashMomentumRetention: 0.3
 --- !u!114 &4182461912481835229
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -351,7 +357,19 @@ MonoBehaviour:
     m_ActionId: 641cd816-40e6-41b4-8c3d-04687c349290
     m_ActionName: 'Player/Sprint[/Keyboard/leftShift]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 4706258567757939826}
+        m_TargetAssemblyTypeName: Player.PlayerController, GameAssembly
+        m_MethodName: OnDash
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: a1b2c3d4-e5f6-7890-abcd-ef1234567890
     m_ActionName: 'Player/Dash[/Keyboard/leftShift]'
   - m_PersistentCalls:
@@ -395,7 +413,19 @@ MonoBehaviour:
     m_ActionId: 9caa3d8a-6b2f-4e8e-8bad-6ede561bd9be
     m_ActionName: UI/TrackedDeviceOrientation
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 4706258567757939826}
+        m_TargetAssemblyTypeName: Player.PlayerController, GameAssembly
+        m_MethodName: OnGrab
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: b2c3d4e5-f6a7-8901-bcde-f12345678901
     m_ActionName: 'Player/Grab[/Keyboard/z]'
   m_NeverAutoSwitchControlSchemes: 0
@@ -415,3 +445,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b2f5cfe2ce947d4bb53fe764da48f02, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &195922315378185068
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5865194654016803934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86ce6b5fb872a1a46ac3c6a4d66fe284, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  respawnDelay: 0.1
