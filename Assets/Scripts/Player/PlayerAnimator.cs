@@ -17,6 +17,7 @@ namespace Player
         private static readonly int YVelocity = Animator.StringToHash("yVelocity");
         private static readonly int IsOnWall = Animator.StringToHash("isOnWall");
         private static readonly int IsWallGrab = Animator.StringToHash("isWallGrab");
+        private static readonly int IsDashingParam = Animator.StringToHash("isDashing");
 
         private float lastNonZeroX;
         private bool hasAnimator;
@@ -46,6 +47,8 @@ namespace Player
 
         private void LateUpdate()
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
+
             HandleSpriteFlip();
             UpdateAnimatorParameters();
         }
@@ -53,6 +56,9 @@ namespace Player
         private void HandleSpriteFlip()
         {
             if (!hasSpriteRenderer || !hasRb) return;
+
+            // Dash: freeze flip direction
+            if (stateMachine.CurrentState == PlayerState.Dashing) return;
 
             // Wall states: face the wall (sprite faces opposite of wall direction)
             if (stateMachine.CurrentState is PlayerState.WallSliding or PlayerState.WallGrab)
@@ -88,6 +94,8 @@ namespace Player
             animator.SetBool(IsGrounded, stateMachine.IsGrounded);
             animator.SetBool(IsOnWall, state is PlayerState.WallSliding or PlayerState.WallGrab);
             animator.SetBool(IsWallGrab, state == PlayerState.WallGrab);
+
+            animator.SetBool(IsDashingParam, state == PlayerState.Dashing);
 
             if (hasRb)
                 animator.SetFloat(YVelocity, rb.linearVelocity.y);

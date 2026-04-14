@@ -45,8 +45,15 @@ namespace Player
 
         [Header("Wall Jump")]
         [SerializeField] private float wallJumpVelocityX = 8f;
-        [SerializeField] private float wallJumpVelocityY = 14f;
         [SerializeField] private float wallJumpLockoutTime = 0.15f;
+        [SerializeField] private float wallJumpMinKickX = 3f;
+
+        [Header("Dash")]
+        [SerializeField] private float dashSpeed = 24f;
+        [SerializeField] private float dashDuration = 0.19f;
+        [SerializeField] private float dashAcceleration = 300f;
+        [SerializeField] private float dashLockoutTime = 0.15f;
+        [SerializeField] private float dashMomentumRetention = 0.3f;
 
         private Rigidbody2D rb;
         private BoxCollider2D col;
@@ -69,12 +76,22 @@ namespace Player
 
         private float currentGrabStamina;
 
+        // Ability state (shared by dash + wall jump)
+        private Vector2 moveDirection;
+        private bool isDashing;
+        private bool hasDashCharge = true;
+        private float facingDirection = 1f;
+
         public int WallDirection => wallDirection;
+        public float FacingDirection => facingDirection;
+        public bool HasDashCharge => hasDashCharge;
 
         private Timer coyoteTimer = new Timer();
         private Timer jumpBufferTimer = new Timer();
         private Timer landingTimer = new Timer();
         private Timer wallJumpLockoutTimer = new Timer();
+        private Timer dashTimer = new Timer();
+        private Timer dashLockoutTimer = new Timer();
 
         private const float LANDING_DURATION = 0.1f;
 
@@ -98,6 +115,8 @@ namespace Player
 
         public void OnJump(InputAction.CallbackContext context)
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
+
             if (context.started)
             {
                 jumpBufferTimer.Start(jumpBufferTime);
@@ -108,22 +127,58 @@ namespace Player
 
         public void OnGrab(InputAction.CallbackContext context)
         {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
             grabHeld = !context.canceled;
+        }
+
+        public void OnDash(InputAction.CallbackContext context)
+        {
+            if (stateMachine.CurrentState == PlayerState.Dead) return;
+            if (context.started && !isDashing && hasDashCharge)
+            {
+                hasDashCharge = false;
+                StartDash();
+            }
+        }
+
+        public void ResetMotionState()
+        {
+            velocity = Vector2.zero;
+            isDashing = false;
+            dashTimer.Stop();
+            dashLockoutTimer.Stop();
+            wallJumpLockoutTimer.Stop();
+            jumpBufferTimer.Stop();
+            coyoteTimer.Stop();
+            isOnWall = false;
+            isWallGrabbing = false;
+            hasDashCharge = true;
         }
 
         // --- Physics loop ---
 
         private void FixedUpdate()
         {
+            if (stateMachine.CurrentState == PlayerState.Dead)
+            {
+                rb.linearVelocity = Vector2.zero;
+                return;
+            }
+
             wasGrounded = isGrounded;
 
-            CheckGround();
             CheckWalls();
+            CheckGround();
             CheckCeiling();
             HandleCoyoteTime();
+
             HandleWallState();
-            ApplyHorizontalMovement();
-            ApplyGravity();
+            HandleDash();
+            if (!isDashing)
+            {
+                ApplyHorizontalMovement();
+                ApplyGravity();
+            }
             HandleJump();
 
             rb.linearVelocity = velocity;
@@ -135,12 +190,17 @@ namespace Player
         private void CheckGround()
         {
             Vector2 origin = (Vector2)transform.position + col.offset + Vector2.down * (col.size.y * 0.5f);
-            isGrounded = Physics2D.OverlapBox(
-                origin + Vector2.down * groundCheckDistance,
-                groundCheckSize,
-                0f,
-                groundLayer
-            );
+
+            // Shrink and shift ground check away from wall to prevent false grounding
+            Vector2 checkSize = groundCheckSize;
+            Vector2 checkOrigin = origin + Vector2.down * groundCheckDistance;
+            if (wallDirection != 0)
+            {
+                checkSize.x *= 0.3f;
+                checkOrigin.x -= wallDirection * checkSize.x * 0.5f;
+            }
+
+            isGrounded = Physics2D.OverlapBox(checkOrigin, checkSize, 0f, groundLayer);
 
             if (isGrounded)
                 currentGrabStamina = wallGrabStamina;
@@ -255,8 +315,8 @@ namespace Player
             {
                 if (isWallGrabbing && moveInputX != -wallDirection)
                 {
-                    // Grab + no away input → jump straight up
-                    velocity.x = 0f;
+                    // Grab + no away input → small kick to prevent hover
+                    velocity.x = -wallDirection * wallJumpMinKickX;
                 }
                 else
                 {
@@ -264,7 +324,8 @@ namespace Player
                     velocity.x = -wallDirection * wallJumpVelocityX;
                 }
 
-                velocity.y = wallJumpVelocityY;
+                velocity.y = jumpVelocity;
+                moveDirection = new Vector2(-wallDirection, 0f);
                 jumpBufferTimer.Stop();
                 wallJumpLockoutTimer.Start(wallJumpLockoutTime);
                 isOnWall = false;
@@ -272,28 +333,82 @@ namespace Player
             }
         }
 
+        private Vector2 GetDashDirection()
+        {
+            if (moveInput.sqrMagnitude > 0.01f)
+                return moveInput.normalized;
+            return new Vector2(facingDirection, 0f);
+        }
+
+        private void StartDash()
+        {
+            isDashing = true;
+            moveDirection = GetDashDirection();
+            dashTimer.Start(dashDuration);
+            velocity = Vector2.zero;
+            if (Mathf.Abs(moveDirection.x) > 0.01f)
+                facingDirection = Mathf.Sign(moveDirection.x);
+            stateMachine.ChangeState(PlayerState.Dashing);
+        }
+
+        private void EndDash()
+        {
+            isDashing = false;
+            dashTimer.Stop();
+            velocity = moveDirection * (dashSpeed * dashMomentumRetention);
+            dashLockoutTimer.Start(dashLockoutTime);
+        }
+
+        private void HandleDash()
+        {
+            if (isGrounded && !isDashing)
+                hasDashCharge = true;
+
+            if (!isDashing) return;
+            if (!dashTimer.IsRunning) { EndDash(); return; }
+
+            // Wall cancellation
+            if ((moveDirection.x > 0f && isTouchingWallRight) ||
+                (moveDirection.x < 0f && isTouchingWallLeft))
+            {
+                EndDash();
+                velocity.x = 0f;
+                return;
+            }
+
+            velocity = Vector2.MoveTowards(velocity, moveDirection * dashSpeed, dashAcceleration * Time.fixedDeltaTime);
+        }
+
+        private float GetLockoutFactor()
+        {
+            if (dashLockoutTimer.IsRunning)
+                return 1f - (dashLockoutTimer.TimeRemaining / dashLockoutTimer.Duration);
+            if (wallJumpLockoutTimer.IsRunning)
+                return 1f - (wallJumpLockoutTimer.TimeRemaining / wallJumpLockoutTimer.Duration);
+            return 1f;
+        }
+
         private void ApplyHorizontalMovement()
         {
-            if (isOnWall || wallJumpLockoutTimer.IsRunning) return;
+            if (isOnWall) return;
 
             float maxSpeed = isGrounded ? maxRunSpeed : maxAirSpeed;
             float targetSpeed = moveInputX * maxSpeed;
-            float accel;
+            float lockout = GetLockoutFactor();
 
-            if (isGrounded)
-            {
-                accel = Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration;
-            }
-            else
-            {
-                accel = Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration;
+            float baseAccel = isGrounded
+                ? (Mathf.Abs(targetSpeed) > 0.01f ? groundAcceleration : groundDeceleration)
+                : (Mathf.Abs(targetSpeed) > 0.01f ? airAcceleration : airDeceleration);
+            float acceleration = baseAccel * lockout;
 
-                // Preserve ground speed — don't clamp if already going faster
-                if (Mathf.Abs(velocity.x) > maxAirSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
-                    return;
-            }
+            // Preserve above-max momentum while pressing the same direction
+            if (Mathf.Abs(velocity.x) > maxSpeed && Mathf.Sign(velocity.x) == Mathf.Sign(moveInputX))
+                return;
 
-            velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, accel * Time.fixedDeltaTime);
+            velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
+
+            if (Mathf.Abs(velocity.x) > 0.1f)
+                facingDirection = Mathf.Sign(velocity.x);
         }
 
         private void ApplyGravity()
@@ -315,6 +430,8 @@ namespace Player
 
         private void UpdateState()
         {
+            if (isDashing) return;
+
             // Wall state takes priority over airborne states
             if (isOnWall && !isGrounded)
             {
@@ -354,6 +471,8 @@ namespace Player
             jumpBufferTimer.Tick(dt);
             landingTimer.Tick(dt);
             wallJumpLockoutTimer.Tick(dt);
+            dashTimer.Tick(dt);
+            dashLockoutTimer.Tick(dt);
         }
 
         // --- Gizmos ---
