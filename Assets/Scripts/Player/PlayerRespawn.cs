@@ -28,6 +28,8 @@ namespace Player
         {
             if (stateMachine.CurrentState == PlayerState.Dead) return;
             stateMachine.ChangeState(PlayerState.Dead);
+            controller.ResetMotionState();
+            rb.linearVelocity = Vector2.zero;
             StartCoroutine(RespawnAfterDelay());
         }
 

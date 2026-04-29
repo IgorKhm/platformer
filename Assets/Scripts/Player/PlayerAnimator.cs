@@ -17,7 +17,7 @@ namespace Player
         private static readonly int YVelocity = Animator.StringToHash("yVelocity");
         private static readonly int IsOnWall = Animator.StringToHash("isOnWall");
         private static readonly int IsWallGrab = Animator.StringToHash("isWallGrab");
-        private static readonly int IsDashingParam = Animator.StringToHash("isDashing");
+        private static readonly int IsDashing = Animator.StringToHash("isDashing");
 
         private float lastNonZeroX;
         private bool hasAnimator;
@@ -95,7 +95,7 @@ namespace Player
             animator.SetBool(IsOnWall, state is PlayerState.WallSliding or PlayerState.WallGrab);
             animator.SetBool(IsWallGrab, state == PlayerState.WallGrab);
 
-            animator.SetBool(IsDashingParam, state == PlayerState.Dashing);
+            animator.SetBool(IsDashing, state == PlayerState.Dashing);
 
             if (hasRb)
                 animator.SetFloat(YVelocity, rb.linearVelocity.y);
